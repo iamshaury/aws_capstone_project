@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stocker - Admin Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header admin-header">
+        <h1>Admin Dashboard</h1>
+        <div class="nav-links">
+             <span>Logged in as: {{ username }}</span>
+            <a href="/logout" style="color: #fff;">Logout</a>
+        </div>
+    </div>
+
+    <div class="content">
+        <h2>System Transactions</h2>
+        <p>Real-time log of all user activities.</p>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>User</th>
+                    <th>Type</th>
+                    <th>Ticker</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for t in transactions %}
+                <tr>
+                    <td>{{ t.time.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                    <td>{{ t.user }}</td>
+                    <td style="color: {{ 'green' if t.type == 'BUY' else 'red' }}; font-weight: bold;">{{ t.type }}</td>
+                    <td>{{ t.ticker }}</td>
+                    <td>{{ t.qty }}</td>
+                    <td>${{ "%.2f"|format(t.price) }}</td>
+                    <td>${{ "%.2f"|format(t.qty * t.price) }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">No transactions found.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

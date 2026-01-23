@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stocker - Buy Stock</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <h1>Buy Stock</h1>
+        <div class="nav-links">
+            <a href="/dashboard">Back to Dashboard</a>
+        </div>
+    </div>
+
+    <div class="container" style="text-align: left; max-width: 600px;">
+        <h2 style="margin-bottom: 1.5rem;">Execute Purchase</h2>
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash-container">
+                {% for message in messages %}
+                  <p class="flash">{{ message }}</p>
+                {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <form action="/buy" method="POST" style="flex-direction: column;">
+            <label>Stock Ticker</label>
+            <input type="text" name="ticker" placeholder="e.g. NVDA" required>
+            
+            <label>Quantity</label>
+            <input type="number" name="quantity" placeholder="Number of shares" min="1" required>
+            
+            <button type="submit" style="margin-top: 1rem;">Confirm Purchase</button>
+        </form>
+    </div>
+</body>
+</html>

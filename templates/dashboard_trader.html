@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stocker - Trader Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <h1>Welcome, {{ username }}</h1>
+        <div class="nav-links">
+            <a href="/sell">Sell Stock</a>
+            <a href="/logout">Logout</a>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="balance-card">
+            <h3>Available Balance</h3>
+            <p>${{ "%.2f"|format(user.balance) }}</p>
+            <p style="font-size: 1.25rem; font-weight: 500; opacity: 0.9;">Total Portfolio Value: ${{ "%.2f"|format(total_value) }}</p>
+        </div>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash-container">
+                {% for message in messages %}
+                  <p class="flash">{{ message }}</p>
+                {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <div class="trade-section">
+            <h3>Quick Buy</h3>
+            <form action="/buy" method="POST">
+                <input type="text" name="ticker" placeholder="Stock Ticker (e.g. AAPL)" required>
+                <input type="number" name="quantity" placeholder="Quantity" min="1" required>
+                <button type="submit">Buy Stock</button>
+            </form>
+        </div>
+
+        <div class="portfolio-section">
+            <h3>Your Portfolio</h3>
+            <table border="1" width="100%">
+                <thead>
+                    <tr>
+                        <th>Ticker</th>
+                        <th>Shares</th>
+                        <th>Avg Cost</th>
+                        <th>Current Price</th>
+                        <th>Market Value</th>
+                        <th>Gain/Loss</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in portfolio %}
+                    <tr>
+                        <td>{{ item.ticker }}</td>
+                        <td>{{ item.qty }}</td>
+                        <td>${{ "%.2f"|format(item.price) }}</td>
+                        <td>${{ "%.2f"|format(item.current_price) }}</td>
+                        <td>${{ "%.2f"|format(item.market_value) }}</td>
+                        <td style="color: {{ 'green' if item.gain_loss >= 0 else 'red' }}">
+                            ${{ "%.2f"|format(item.gain_loss) }}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6">No stocks owned yet.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="services-links">
+            <h3>Premium Services</h3>
+            <ul>
+                <li><a href="/service/1">Market Analytics</a></li>
+                <li><a href="/service/2">Portfolio Advisory</a></li>
+                <li><a href="/service/3">Real-time Alerts</a></li>
+                <li><a href="/service/4">Tax Reporting</a></li>
+                <li><a href="/service/5">Global Markets</a></li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>
