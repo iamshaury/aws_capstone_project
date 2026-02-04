@@ -1,0 +1,5 @@
+/* App specific styles if needed, can be empty as index.css covers globals */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
