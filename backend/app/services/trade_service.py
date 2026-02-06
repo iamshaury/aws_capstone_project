@@ -1,120 +1,169 @@
 from datetime import datetime
-from ..database import db
+from ..database import users_table, portfolio_table, trades_table
 from ..services.alpha_vantage_service import get_stock_quote
+from botocore.exceptions import ClientError
+from boto3.dynamodb.conditions import Key
+from decimal import Decimal
 
 def buy_stock(username, symbol, quantity):
-    user = db.users.find_one({'username': username})
-    if not user:
-        raise Exception("User not found")
+    try:
+        # 1. Get User & Check Balance
+        user_response = users_table.get_item(Key={'username': username})
+        if 'Item' not in user_response:
+            raise Exception("User not found")
         
-    stock = get_stock_quote(symbol) # Use Alpha Vantage / Mock
-    if not stock:
-        # Fallback just in case even mock fails (unlikely)
-        stock = {'price': 150.0} 
+        user = user_response['Item']
         
-    current_price = float(stock['price'])
-    total_cost = current_price * quantity
-    
-    if user['virtualBalance'] < total_cost:
-        raise Exception("Insufficient balance")
+        stock = get_stock_quote(symbol) # Use Alpha Vantage / Mock
+        if not stock:
+            # Fallback
+            stock = {'price': 150.0}
+            
+        current_price = float(stock['price'])
+        total_cost = current_price * quantity
         
-    # Transaction
-    # 1. Deduct Balance
-    db.users.update_one(
-        {'_id': user['_id']},
-        {'$inc': {'virtualBalance': -total_cost}}
-    )
-    
-    # 2. Update Portfolio
-    user_id = user['_id']
-    existing_holding = db.portfolio.find_one({'userId': user_id, 'symbol': symbol})
-    
-    if existing_holding:
-        # Calculate new avg price
-        current_qty = existing_holding['quantity']
-        current_avg = existing_holding['avgBuyPrice']
-        new_qty = current_qty + quantity
-        new_avg = ((current_qty * current_avg) + total_cost) / new_qty
+        # Balance handling (Decimal)
+        balance = float(user['virtualBalance'])
         
-        db.portfolio.update_one(
-            {'_id': existing_holding['_id']},
-            {'$set': {'quantity': new_qty, 'avgBuyPrice': new_avg}}
+        if balance < total_cost:
+            raise Exception("Insufficient balance")
+            
+        # 2. Deduct Balance
+        new_balance = balance - total_cost
+        users_table.update_item(
+            Key={'username': username},
+            UpdateExpression="set virtualBalance = :b",
+            ExpressionAttributeValues={':b': Decimal(str(new_balance))}
         )
-    else:
-        db.portfolio.insert_one({
-            'userId': user_id,
+        
+        # 3. Update Portfolio
+        # Check if holding exists
+        # Portfolio PK: userId (username), SK: symbol
+        holding_response = portfolio_table.get_item(Key={'userId': username, 'symbol': symbol})
+        
+        if 'Item' in holding_response:
+            existing_holding = holding_response['Item']
+            current_qty = float(existing_holding['quantity'])
+            current_avg = float(existing_holding['avgBuyPrice'])
+            
+            new_qty = current_qty + quantity
+            new_avg = ((current_qty * current_avg) + total_cost) / new_qty
+            
+            portfolio_table.update_item(
+                Key={'userId': username, 'symbol': symbol},
+                UpdateExpression="set quantity = :q, avgBuyPrice = :a",
+                ExpressionAttributeValues={
+                    ':q': Decimal(str(new_qty)),
+                    ':a': Decimal(str(new_avg))
+                }
+            )
+        else:
+            portfolio_table.put_item(Item={
+                'userId': username,
+                'symbol': symbol,
+                'quantity': Decimal(str(quantity)),
+                'avgBuyPrice': Decimal(str(current_price))
+            })
+            
+        # 4. Log Trade
+        # Trades PK: userId, SK: timestamp
+        timestamp = datetime.now().isoformat()
+        trades_table.put_item(Item={
+            'userId': username,
+            'timestamp': timestamp, # Sort Key
+            'user': username,
             'symbol': symbol,
-            'quantity': quantity,
-            'avgBuyPrice': current_price
+            'ticker': symbol,
+            'type': 'BUY',
+            'quantity': Decimal(str(quantity)),
+            'qty': Decimal(str(quantity)),
+            'total_amount': Decimal(str(total_cost)),
+            'balance_after_trade': Decimal(str(new_balance)),
+            'price': Decimal(str(current_price)),
+            'time': timestamp
         })
         
-    # 3. Log Trade
-    db.trades.insert_one({
-        'userId': user_id,
-        'user': username, # Added for Admin text display
-        'symbol': symbol, 
-        'ticker': symbol, # For frontend compatibility
-        'type': 'BUY',
-        'quantity': quantity,
-        'qty': quantity, # Frontend compatibility
-        'total_amount': total_cost,
-        'balance_after_trade': user['virtualBalance'] - total_cost,
-        'price': current_price,
-        'time': datetime.now().isoformat()
-    })
-    
-    return True
+        return True
+    except Exception as e:
+        print(f"Buy Stock Error: {e}")
+        raise e
 
 def sell_stock(username, symbol, quantity):
-    user = db.users.find_one({'username': username})
-    if not user:
-        raise Exception("User not found")
+    try:
+        # 1. Get User
+        user_response = users_table.get_item(Key={'username': username})
+        if 'Item' not in user_response:
+            raise Exception("User not found")
         
-    user_id = user['_id']
-    existing_holding = db.portfolio.find_one({'userId': user_id, 'symbol': symbol})
-    
-    if not existing_holding or existing_holding['quantity'] < quantity:
-        raise Exception("Insufficient shares")
+        user = user_response['Item']
         
-    stock = get_stock_quote(symbol)
-    if not stock:
-        stock = {'price': 150.0}
+        # 2. Check Holding
+        holding_response = portfolio_table.get_item(Key={'userId': username, 'symbol': symbol})
+        if 'Item' not in holding_response:
+             raise Exception("Insufficient shares")
+             
+        existing_holding = holding_response['Item']
+        current_qty = float(existing_holding['quantity'])
         
-    current_price = float(stock['price'])
-    total_revenue = current_price * quantity
-    
-    # 1. Add Balance
-    db.users.update_one(
-        {'_id': user_id},
-        {'$inc': {'virtualBalance': total_revenue}}
-    )
-    
-    # 2. Update Portfolio
-    new_qty = existing_holding['quantity'] - quantity
-    if new_qty == 0:
-        db.portfolio.delete_one({'_id': existing_holding['_id']})
-    else:
-        db.portfolio.update_one(
-            {'_id': existing_holding['_id']},
-            {'$set': {'quantity': new_qty}}
+        if current_qty < quantity:
+            raise Exception("Insufficient shares")
+            
+        # 3. Get Price
+        stock = get_stock_quote(symbol)
+        if not stock:
+            stock = {'price': 150.0}
+            
+        current_price = float(stock['price'])
+        total_revenue = current_price * quantity
+        
+        # 4. Add Balance
+        balance = float(user['virtualBalance'])
+        new_balance = balance + total_revenue
+        
+        users_table.update_item(
+            Key={'username': username},
+            UpdateExpression="set virtualBalance = :b",
+            ExpressionAttributeValues={':b': Decimal(str(new_balance))}
         )
         
-    # 3. Log Trade
-    db.trades.insert_one({
-        'userId': user_id,
-        'user': username,
-        'symbol': symbol,
-        'ticker': symbol,
-        'type': 'SELL',
-        'quantity': quantity,
-        'qty': quantity,
-        'total_amount': total_revenue,
-        'balance_after_trade': user['virtualBalance'] + total_revenue,
-        'price': current_price,
-        'time': datetime.now().isoformat()
-    })
-    
-    return True
+        # 5. Update Portfolio
+        new_qty = current_qty - quantity
+        if new_qty == 0:
+            portfolio_table.delete_item(Key={'userId': username, 'symbol': symbol})
+        else:
+            portfolio_table.update_item(
+                Key={'userId': username, 'symbol': symbol},
+                UpdateExpression="set quantity = :q",
+                ExpressionAttributeValues={':q': Decimal(str(new_qty))}
+            )
+            
+        # 6. Log Trade
+        timestamp = datetime.now().isoformat()
+        trades_table.put_item(Item={
+            'userId': username,
+            'timestamp': timestamp,
+            'user': username,
+            'symbol': symbol,
+            'ticker': symbol,
+            'type': 'SELL',
+            'quantity': Decimal(str(quantity)),
+            'qty': Decimal(str(quantity)),
+            'total_amount': Decimal(str(total_revenue)),
+            'balance_after_trade': Decimal(str(new_balance)),
+            'price': Decimal(str(current_price)),
+            'time': timestamp
+        })
+        
+        return True
+    except Exception as e:
+        print(f"Sell Stock Error: {e}")
+        raise e
 
 def get_all_trades():
-    return db.trades.find({})
+    try:
+        # Scan trades table (admin feature)
+        response = trades_table.scan()
+        return response.get('Items', [])
+    except ClientError as e:
+        print(f"Error fetching trades: {e}")
+        return []

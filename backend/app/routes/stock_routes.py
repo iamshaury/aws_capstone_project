@@ -1,16 +1,21 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template, session, redirect, url_for
 from ..services.stock_service import get_all_stocks
+from ..services.auth_service import get_user_by_username
 from ..services.alpha_vantage_service import (
     search_stocks, get_stock_quote, get_company_overview, 
     get_stock_history, get_market_movers
 )
 
-stock_bp = Blueprint('stocks', __name__) # Renamed to plural to avoid collision if any
+stock_bp = Blueprint('stock', __name__) # Singular 'stock' to match usage
 
-@stock_bp.route('/', methods=['GET'])
-def list_stocks():
-    # Legacy/Mock support
-    return jsonify(get_all_stocks())
+@stock_bp.route('/dashboard', methods=['GET'])
+def dashboard():
+    if 'user' not in session:
+        return redirect(url_for('auth.login'))
+        
+    user = get_user_by_username(session['user'])
+    stocks = get_all_stocks()
+    return render_template('dashboard.html', user=user, stocks=stocks)
 
 @stock_bp.route('/search', methods=['GET'])
 def search():

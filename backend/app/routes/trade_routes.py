@@ -1,28 +1,47 @@
-from flask import Blueprint, request, jsonify, session
+from flask import Blueprint, request, jsonify, session, flash, redirect, url_for
 from ..services.trade_service import buy_stock, sell_stock
 
-trade_bp = Blueprint('trades', __name__)
+trade_bp = Blueprint('trade', __name__)
 
 @trade_bp.route('/buy', methods=['POST'])
 def buy():
     if 'user' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return redirect(url_for('auth.login'))
     
-    data = request.json
+    # Handle Form or JSON
+    if request.is_json:
+        data = request.json
+        ticker = data.get('ticker')
+        qty = int(data.get('quantity'))
+    else:
+        ticker = request.form.get('symbol')
+        qty = int(request.form.get('quantity'))
+
     try:
-        buy_stock(session['user'], data.get('ticker'), int(data.get('quantity')))
-        return jsonify({'message': f"Bought {data.get('quantity')} of {data.get('ticker')}"})
+        buy_stock(session['user'], ticker, qty)
+        flash(f"Sueccessfully bought {qty} shares of {ticker}", "success")
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        flash(str(e), "error")
+        
+    return redirect(url_for('stock.dashboard'))
 
 @trade_bp.route('/sell', methods=['POST'])
 def sell():
     if 'user' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+        return redirect(url_for('auth.login'))
     
-    data = request.json
+    if request.is_json:
+        data = request.json
+        ticker = data.get('ticker')
+        qty = int(data.get('quantity'))
+    else:
+        ticker = request.form.get('symbol')
+        qty = int(request.form.get('quantity'))
+
     try:
-        sell_stock(session['user'], data.get('ticker'), int(data.get('quantity')))
-        return jsonify({'message': f"Sold {data.get('quantity')} of {data.get('ticker')}"})
+        sell_stock(session['user'], ticker, qty)
+        flash(f"Successfully sold {qty} shares of {ticker}", "success")
     except Exception as e:
-        return jsonify({'error': str(e)}), 400
+        flash(str(e), "error")
+        
+    return redirect(url_for('portfolio.portfolio_view'))

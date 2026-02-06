@@ -1,6 +1,7 @@
 flask
 flask-cors
-pymongo
+boto3
 dnspython
 requests
 python-dotenv
+gunicorn

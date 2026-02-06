@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}My Portfolio{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div style="margin-bottom: 2rem;">
+        <h1>My Portfolio</h1>
+    </div>
+
+    <div class="card">
+        {% if portfolio %}
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Quantity</th>
+                    <th>Avg. Buy Price</th>
+                    <th>Current Price</th>
+                    <th>Market Value</th>
+                    <th>Gain/Loss</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in portfolio %}
+                <tr>
+                    <td><strong>{{ item.ticker }}</strong></td>
+                    <td>{{ item.qty }}</td>
+                    <td>${{ "%.2f"|format(item.price) }}</td>
+                    <td>${{ "%.2f"|format(item.current_price) }}</td>
+                    <td>${{ "%.2f"|format(item.market_value) }}</td>
+                    <td class="{{ 'text-success' if item.gain_loss >= 0 else 'text-danger' }}">
+                        {{ "+" if item.gain_loss >= 0 else "" }}${{ "%.2f"|format(item.gain_loss) }}
+                    </td>
+                    <td>
+                        <form action="{{ url_for('trade.sell') }}" method="POST" style="display: flex; gap: 0.5rem;">
+                            <input type="hidden" name="symbol" value="{{ item.ticker }}">
+                            <input type="number" name="quantity" value="1" min="1" max="{{ item.qty }}"
+                                class="form-control" style="width: 80px; padding: 0.25rem;">
+                            <button type="submit" class="btn btn-danger" style="padding: 0.25rem 0.75rem;">Sell</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 1.5rem; text-align: right;">
+            <h3>Total Value: ${{ "%.2f"|format(total_value) }}</h3>
+        </div>
+
+        {% else %}
+        <p class="text-center" style="color: var(--text-muted);">You don't own any stocks yet.</p>
+        <div class="text-center">
+            <a href="{{ url_for('stock.dashboard') }}" class="btn btn-primary">Start Trading</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
