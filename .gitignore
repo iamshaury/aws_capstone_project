@@ -1,0 +1,24 @@
+# Environments
+venv/
+env/
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.db
+*.sqlite3
+
+# Deployment
+*.zip
+aws_capstone_backend.zip
+
+# OS
+.DS_Store
+
+# Config
+config.py
+backend/app/config.py

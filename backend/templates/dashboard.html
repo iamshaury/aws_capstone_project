@@ -30,7 +30,7 @@
                     <td>{{ stock.name }}</td>
                     <td>${{ "%.2f"|format(stock.currentPrice|float) }}</td>
                     <td>
-                        <form action="{{ url_for('trade.buy') }}" method="POST" style="display: flex; gap: 0.5rem;">
+                        <form action="{{ url_for('buy') }}" method="POST" style="display: flex; gap: 0.5rem;">
                             <input type="hidden" name="symbol" value="{{ stock.symbol }}">
                             <input type="number" name="quantity" value="1" min="1" class="form-control"
                                 style="width: 80px; padding: 0.25rem;">

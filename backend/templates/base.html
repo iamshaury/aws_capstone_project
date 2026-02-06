@@ -17,18 +17,18 @@
         <a href="/" class="navbar-brand">Stocker</a>
         <ul class="navbar-nav">
             {% if session.get('user') %}
-            <li><a href="{{ url_for('stock.dashboard') }}" class="nav-link">Dashboard</a></li>
-            <li><a href="{{ url_for('portfolio.portfolio_view') }}" class="nav-link">Portfolio</a></li>
-            <!-- <li><a href="{{ url_for('trade.trades_view') }}" class="nav-link">Trades</a></li> -->
+            <li><a href="{{ url_for('dashboard') }}" class="nav-link">Dashboard</a></li>
+            <li><a href="{{ url_for('portfolio') }}" class="nav-link">Portfolio</a></li>
+            <!-- <li><a href="{{ url_for('trades_view') }}" class="nav-link">Trades</a></li> -->
             <li>
-                <form action="{{ url_for('auth.logout') }}" method="POST" style="display:inline;">
+                <form action="{{ url_for('logout') }}" method="POST" style="display:inline;">
                     <button type="submit" class="nav-link"
                         style="background:none; border:none; cursor:pointer; padding:0;">Logout</button>
                 </form>
             </li>
             {% else %}
-            <li><a href="{{ url_for('auth.login') }}" class="nav-link">Login</a></li>
-            <li><a href="{{ url_for('auth.signup') }}" class="nav-link">Sign Up</a></li>
+            <li><a href="{{ url_for('login') }}" class="nav-link">Login</a></li>
+            <li><a href="{{ url_for('signup') }}" class="nav-link">Sign Up</a></li>
             {% endif %}
         </ul>
     </nav>

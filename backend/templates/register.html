@@ -5,24 +5,24 @@
 {% block content %}
 <div class="container" style="max-width: 400px; margin-top: 5rem;">
     <div class="card">
-        <h2 class="card-title text-center">Create Account</h2>
-        <form method="POST" action="{{ url_for('auth.signup') }}">
+        <h2 class="card-title text-center">Sign Up</h2>
+        <form method="POST" action="{{ url_for('signup') }}">
             <div class="form-group">
                 <label for="username" class="form-label">Username</label>
                 <input type="text" id="username" name="username" class="form-control" required>
             </div>
             <div class="form-group">
-                <label for="email" class="form-label">Email (Optional)</label>
+                <label for="email" class="form-label">Email</label>
                 <input type="email" id="email" name="email" class="form-control">
             </div>
             <div class="form-group">
                 <label for="password" class="form-label">Password</label>
                 <input type="password" id="password" name="password" class="form-control" required>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Sign Up</button>
+            <button type="submit" class="btn btn-primary btn-block">Create Account</button>
         </form>
         <p class="text-center" style="margin-top: 1rem;">
-            Already have an account? <a href="{{ url_for('auth.login') }}">Login</a>
+            Already have an account? <a href="{{ url_for('login') }}">Login</a>
         </p>
     </div>
 </div>
