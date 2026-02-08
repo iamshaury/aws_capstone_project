@@ -36,6 +36,10 @@ CORS(app, supports_credentials=True, origins=[
     "http://localhost:5173", "http://localhost:3000"
 ])
 
+# --- Mock Services ---
+# --- Mock Services ---
+from mock_db import MockTable, MockSNS
+
 # --- Database & AWS Setup ---
 def get_aws_params():
     params = {'region_name': Config.AWS_REGION}
@@ -48,21 +52,40 @@ def get_aws_params():
         params['endpoint_url'] = Config.DYNAMODB_ENDPOINT
     return params
 
-dynamodb = boto3.resource('dynamodb', **get_aws_params())
+use_mock = False
+if Config.AWS_ACCESS_KEY_ID == 'testing' or not Config.AWS_ACCESS_KEY_ID:
+    print("⚠️  Using MOCK Database (In-Memory)")
+    use_mock = True
+    users_table = MockTable('Users')
+    stocks_table = MockTable('Stocks')
+    portfolio_table = MockTable('Portfolio')
+    trades_table = MockTable('Trades')
+    sns = MockSNS()
+else:
+    dynamodb = boto3.resource('dynamodb', **get_aws_params())
 
-sns_params = get_aws_params()
-if 'endpoint_url' in sns_params:
-    del sns_params['endpoint_url']
-sns = boto3.client('sns', **sns_params)
+    sns_params = get_aws_params()
+    if 'endpoint_url' in sns_params:
+        del sns_params['endpoint_url']
+    sns = boto3.client('sns', **sns_params)
 
-try:
-    users_table = dynamodb.Table('Users')
-    stocks_table = dynamodb.Table('Stocks')
-    portfolio_table = dynamodb.Table('Portfolio')
-    trades_table = dynamodb.Table('Trades')
-    print(f"✅ DynamoDB Resource Initialized (Region: {Config.AWS_REGION})")
-except Exception as e:
-    print(f"❌ Failed to initialize DynamoDB resources: {e}")
+    try:
+        users_table = dynamodb.Table('Users')
+        stocks_table = dynamodb.Table('Stocks')
+        portfolio_table = dynamodb.Table('Portfolio')
+        trades_table = dynamodb.Table('Trades')
+        # Simple check
+        users_table.creation_date_time
+        print(f"✅ DynamoDB Resource Initialized (Region: {Config.AWS_REGION})")
+    except Exception as e:
+        print(f"❌ Failed to connect to DynamoDB: {e}")
+        print("⚠️  Falling back to MOCK Database (In-Memory)")
+        use_mock = True
+        users_table = MockTable('Users')
+        stocks_table = MockTable('Stocks')
+        portfolio_table = MockTable('Portfolio')
+        trades_table = MockTable('Trades')
+        sns = MockSNS()
 
 # --- Helper Services ---
 
@@ -183,8 +206,13 @@ def get_user_by_username(username):
 # Portfolio Services
 def get_portfolio(username):
     try:
-        resp = portfolio_table.query(KeyConditionExpression=Key('userId').eq(username))
-        items = resp.get('Items', [])
+        if use_mock:
+            # Mock implementation of query specific for this function
+            items = [v for v in portfolio_table.items.values() if v.get('userId') == username]
+        else:
+            resp = portfolio_table.query(KeyConditionExpression=Key('userId').eq(username))
+            items = resp.get('Items', [])
+            
         portfolio = []
         for item in items:
             symbol = item['symbol']

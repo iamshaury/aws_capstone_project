@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="header-section"
+        style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1>Market Dashboard</h1>
+            <p style="color: var(--text-secondary); margin-top: 0.5rem;">Real-time market data and portfolio overview
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('portfolio') }}" class="btn btn-primary">View Portfolio</a>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-label">Virtual Balance</div>
+            <div class="stat-value text-success">${{ "{:,.2f}".format(user.virtualBalance) }}</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Market Status</div>
+            <div class="stat-value" style="color: var(--primary);">OPEN</div>
+        </div>
+        <!-- Add more stats here if available, e.g. Total Portfolio Value -->
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- Main Content: Stock List -->
+        <div class="card">
+            <h2 class="card-title">Market Overview</h2>
+            <div class="table-container">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Symbol</th>
+                            <th>Company</th>
+                            <th>Price</th>
+                            <th>Change</th>
+                            <th class="text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stock in stocks %}
+                        <tr>
+                            <td>
+                                <div style="font-weight: 600; color: var(--text-primary);">{{ stock.symbol }}</div>
+                            </td>
+                            <td>{{ stock.name }}</td>
+                            <td>${{ "%.2f"|format(stock.currentPrice|float) }}</td>
+                            <td>
+                                <span class="{{ 'text-success' if stock.change > 0 else 'text-danger' }}">
+                                    {{ "%.2f"|format(stock.change|float) }}%
+                                </span>
+                            </td>
+                            <td>
+                                <form action="{{ url_for('buy') }}" method="POST"
+                                    style="display: flex; gap: 0.5rem; justify-content: flex-end;">
+                                    <input type="hidden" name="symbol" value="{{ stock.symbol }}">
+                                    <input type="number" name="quantity" value="1" min="1"
+                                        style="width: 70px; padding: 0.4rem;">
+                                    <button type="submit" class="btn btn-primary"
+                                        style="padding: 0.4rem 1rem; font-size: 0.875rem;">Buy</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Sidebar: Quick Actions or Info -->
+        <div style="display: flex; flex-direction: column; gap: 2rem;">
+            <div class="card">
+                <h2 class="card-title">Quick Trade</h2>
+                <form action="{{ url_for('buy') }}" method="POST">
+                    <div>
+                        <label>Symbol</label>
+                        <input type="text" name="symbol" placeholder="e.g. AAPL" required>
+                    </div>
+                    <div>
+                        <label>Quantity</label>
+                        <input type="number" name="quantity" value="1" min="1" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">Execute Order</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2 class="card-title">Market Movers</h2>
+                <div style="color: var(--text-secondary); font-size: 0.875rem;">
+                    <p>Feature coming soon...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
