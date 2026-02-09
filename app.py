@@ -22,7 +22,7 @@ class Config:
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
     AWS_SESSION_TOKEN = os.environ.get('AWS_SESSION_TOKEN') # Required for AWS Lab/Academy
     DYNAMODB_ENDPOINT = os.environ.get('DYNAMODB_ENDPOINT')
-    AWS_SNS_TOPIC_ARN = os.environ.get('AWS_SNS_TOPIC_ARN') or 'arn:aws:sns:us-east-1:982534367200:stocker'
+    AWS_SNS_TOPIC_ARN = os.environ.get('AWS_SNS_TOPIC_ARN') or 'arn:aws:sns:us-east-1:148761638287:stocker:9ac1b865-bdf2-44f8-9f6f-143ce1c1930d'
     ALPHA_VANTAGE_KEY = os.environ.get('ALPHA_VANTAGE_KEY') or 'RTSTRBKY4VDW8QLP'
     INITIAL_VIRTUAL_BALANCE = 100000.0
 
