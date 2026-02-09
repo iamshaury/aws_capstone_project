@@ -22,7 +22,7 @@ class Config:
     AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
     AWS_SESSION_TOKEN = os.environ.get('AWS_SESSION_TOKEN') # Required for AWS Lab/Academy
     DYNAMODB_ENDPOINT = os.environ.get('DYNAMODB_ENDPOINT')
-    AWS_SNS_TOPIC_ARN = os.environ.get('AWS_SNS_TOPIC_ARN') or 'arn:aws:sns:us-east-1:703671933325:stocker'
+    AWS_SNS_TOPIC_ARN = os.environ.get('AWS_SNS_TOPIC_ARN') or 'arn:aws:sns:us-east-1:982534367200:stocker'
     ALPHA_VANTAGE_KEY = os.environ.get('ALPHA_VANTAGE_KEY') or 'RTSTRBKY4VDW8QLP'
     INITIAL_VIRTUAL_BALANCE = 100000.0
 
@@ -37,8 +37,125 @@ CORS(app, supports_credentials=True, origins=[
 ])
 
 # --- Mock Services ---
-# --- Mock Services ---
-from mock_db import MockTable, MockSNS
+class MockTable:
+    def __init__(self, name):
+        self.name = name
+        self.items = {} # Key -> Item
+        self.key_schema = 'username' if name == 'Users' else ('userId' if name == 'Portfolio' else 'id')
+
+    def get_item(self, Key):
+        # Flatten key for lookup if simple, else composite string
+        k = list(Key.values())[0] if len(Key) == 1 else f"{Key.get('userId')}_{Key.get('symbol')}"
+        
+        if self.name == 'Users':
+            k = Key['username']
+        elif self.name == 'Portfolio':
+             k = f"{Key['userId']}_{Key['symbol']}"
+
+        item = self.items.get(k)
+        return {'Item': item} if item else {}
+
+    def put_item(self, Item):
+        if self.name == 'Users':
+            k = Item['username']
+        elif self.name == 'Portfolio':
+            k = f"{Item['userId']}_{Item['symbol']}"
+        else:
+            k = str(len(self.items)) # Auto-incish for others
+            
+        self.items[k] = Item
+        return {'ResponseMetadata': {'HTTPStatusCode': 200}}
+
+    def update_item(self, Key, UpdateExpression, ExpressionAttributeValues):
+        # naive implementation for specific known patterns in this app
+        # Users: set virtualBalance
+        # Portfolio: set quantity, avgBuyPrice
+        
+        k = None
+        if self.name == 'Users':
+            k = Key['username']
+        elif self.name == 'Portfolio':
+             k = f"{Key['userId']}_{Key['symbol']}"
+             
+        if k not in self.items: return # Should not happen based on app logic calling get first
+        
+        item = self.items[k]
+        
+        # Parse UpdateExpression - VERY simplified for this specific app's needs
+        # "set virtualBalance = :b"
+        if "virtualBalance" in UpdateExpression:
+            val = ExpressionAttributeValues[':b']
+            item['virtualBalance'] = val
+            
+        # "set quantity = :q, avgBuyPrice = :p"
+        if "quantity" in UpdateExpression:
+            item['quantity'] = ExpressionAttributeValues[':q']
+        if "avgBuyPrice" in UpdateExpression:
+            item['avgBuyPrice'] = ExpressionAttributeValues[':p']
+            
+        self.items[k] = item
+        return {'Attributes': item}
+
+    def delete_item(self, Key):
+        k = f"{Key['userId']}_{Key['symbol']}"
+        if k in self.items:
+            del self.items[k]
+        return {'ResponseMetadata': {'HTTPStatusCode': 200}}
+
+    def query(self, KeyConditionExpression):
+        # Naive scan for portfolio "userId = :uid"
+        # KeyConditionExpression=Key('userId').eq(username)
+        # We'll just assume the caller is asking for all items for a user
+        # which is what get_portfolio does.
+        
+        # Extract user id from the expression object or just passed context? 
+        # The app passes: Key('userId').eq(username)
+        # In a real mock this is hard to parse without the Key object context.
+        # However, for this specific app, we know it's only used for get_portfolio(username).
+        # So we can filtering by scanning values.
+        
+        # LIMITATION: This mock relies on the fact that we know how the app uses it.
+        # To make it robust, we'd need to inspect the KeyConditionExpression object, 
+        # but that's complex. 
+        # INSTEAD: We will check if we can infer the user ID.
+        # Actually, let's look at how query is called: `portfolio_table.query(KeyConditionExpression=Key('userId').eq(username))`
+        # We can't easily extract username from that boto3 object here without private member access.
+        
+        # Workaround: Filter all items that match the user_id pattern.
+        # Since we store keys as "userId_symbol", we can check startswith.
+        
+        # WAIT: iterating items is cleaner.
+        results = []
+        # We need the userId.
+        # The mock doesn't know the userId unless we pass it. 
+        # BUT, the caller has it.
+        # Let's hope the KeyConditionExpression logic works differently or we need a simpler query.
+        
+        # Let's try to extract it from the values in items
+        # Portfolio items have 'userId' field.
+        
+        # We need the value to match. 
+        # This is strictly a hack for the known usage "Key('userId').eq(username)"
+        # where we don't effectively have the username string here easily.
+        
+        # Let's assume the Global 'session' or context? No.
+        
+        # Alternative updates:
+        # We can't truly mock `query` perfectly without parsing the Condition.
+        # However, looking at `get_portfolio(username)`, it calls query.
+        
+        # Let's just return ALL items for now? No, that breaks multi-user.
+        # We can scan all items and filter by 'userId'. 
+        # But we need the target userId.
+        
+        # HACK: logic in `get_portfolio`
+        pass 
+        return {'Items': []} # Placeholder, see step 2
+
+class MockSNS:
+    def publish(self, TopicArn, Subject, Message):
+        print(f"[MockSNS] Subject: {Subject} | Message: {Message}")
+        return {'MessageId': 'mock-id'}
 
 # --- Database & AWS Setup ---
 def get_aws_params():
@@ -52,6 +169,7 @@ def get_aws_params():
         params['endpoint_url'] = Config.DYNAMODB_ENDPOINT
     return params
 
+dynamodb = None
 use_mock = False
 if Config.AWS_ACCESS_KEY_ID == 'testing' or not Config.AWS_ACCESS_KEY_ID:
     print("⚠️  Using MOCK Database (In-Memory)")

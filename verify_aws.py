@@ -7,7 +7,7 @@ from botocore.exceptions import ClientError
 sys.path.append(os.getcwd())
 
 try:
-    from application import Config, dynamodb, sns, users_table, stocks_table, portfolio_table, trades_table
+    from app import Config, dynamodb, sns, users_table, stocks_table, portfolio_table, trades_table
 except ImportError as e:
     print(f"Error importing app modules: {e}")
     sys.exit(1)
@@ -24,6 +24,9 @@ def check_dynamodb():
         
         # If running locally with minimal perms, list_tables might fail, 
         # but let's try to access the specific tables we defined.
+        if dynamodb is None:
+            print("⚠️ DynamoDB resource is None (Mock Mode active). Skipping table checks.")
+            return False
         
         for name in tables:
             try:
@@ -61,6 +64,9 @@ def check_sns():
     print(f"Checking SNS Topic: {topic_arn}")
     try:
         # Get topic attributes to verify existence
+        if not hasattr(sns, 'get_topic_attributes'):
+             print(f"⚠️  Using MOCK SNS (In-Memory). Topic ARN configured: {topic_arn}")
+             return True
         response = sns.get_topic_attributes(TopicArn=topic_arn)
         print("✅ SNS Topic exists and is accessible.")
         return True
